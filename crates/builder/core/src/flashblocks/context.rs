@@ -4,7 +4,7 @@ use std::{
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
 
-use alloy_consensus::{Eip658Value, Transaction};
+use alloy_consensus::{Eip658Value, Transaction, TxReceipt};
 use alloy_eips::{Encodable2718, Typed2718};
 use alloy_evm::Database;
 #[cfg(any(test, feature = "test-utils"))]
@@ -42,8 +42,9 @@ use tokio_util::sync::CancellationToken;
 use tracing::{Level, debug, span, trace, warn};
 
 use crate::{
-    BuilderConfig, BuilderMetrics, ExecutionInfo, ExecutionMeteringLimitExceeded, PayloadTxsBounds,
-    ResourceLimits, TxResources, TxnExecutionError, TxnOutcome,
+    BuildEventEmitter, BuilderConfig, BuilderMetrics, ExecutionInfo,
+    ExecutionMeteringLimitExceeded, PayloadTxsBounds, ResourceLimits, TxResources,
+    TxnExecutionError, TxnOutcome,
     transaction_events::{
         BuilderAcceptedEventData, BuilderConsideredEventData, BuilderRejectedEventData,
         BuilderTransactionEventContext, emit_builder_transaction_event, rejection_reason_code,
@@ -253,6 +254,8 @@ pub struct BasePayloadBuilderCtx {
     pub builder_config: BuilderConfig,
     /// Sender for forwarding per-block batches of rejected transactions to the audit-archiver.
     pub rejected_tx_sender: Option<mpsc::Sender<Vec<RejectedTransaction>>>,
+    /// Emitter for the optional build-event stream.
+    pub build_events: Arc<BuildEventEmitter>,
 }
 
 impl BasePayloadBuilderCtx {
@@ -1201,6 +1204,19 @@ impl BasePayloadBuilderCtx {
             };
             info.receipts.push(self.build_receipt(ctx, None));
 
+            if self.build_events.is_enabled() {
+                let logs = info.receipts.last().map(|r| r.logs().to_vec()).unwrap_or_default();
+                self.build_events.emit(crate::BuildEvent::TxExecuted {
+                    payload_id: self.payload_id(),
+                    tx_hash,
+                    from: tx.signer(),
+                    to: tx.to(),
+                    logs,
+                    gas_used,
+                    success: is_success,
+                });
+            }
+
             // commit changes
             evm.db_mut().commit(state);
 
@@ -1337,6 +1353,7 @@ impl BasePayloadBuilderCtx {
             extra: FlashblocksExtraCtx::default(),
             builder_config: crate::BuilderConfig::default(),
             rejected_tx_sender: None,
+            build_events: Arc::new(BuildEventEmitter::new(None)),
         }
     }
 }

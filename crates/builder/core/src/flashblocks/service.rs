@@ -20,7 +20,7 @@ use tracing::info;
 
 use super::{PayloadHandler, generator::BlockPayloadJobGenerator, payload::BasePayloadBuilder};
 use crate::{
-    BuilderConfig, RejectedTxForwarder,
+    BuildEventEmitter, BuilderConfig, RejectedTxForwarder,
     traits::{NodeBounds, PoolBounds},
 };
 
@@ -57,6 +57,7 @@ impl FlashblocksServiceBuilder {
 
         let ws_pub: Arc<WebSocketPublisher> =
             WebSocketPublisher::new(self.0.flashblocks_ws_addr)?.into();
+        let build_events = Arc::new(BuildEventEmitter::new(self.0.build_event_tx.clone()));
         let payload_builder = BasePayloadBuilder::new(
             BaseEvmConfig::base(ctx.chain_spec()),
             pool,
@@ -65,6 +66,7 @@ impl FlashblocksServiceBuilder {
             built_payload_tx,
             ws_pub,
             rejected_tx_sender,
+            build_events,
         );
         let payload_generator = BlockPayloadJobGenerator::with_builder(
             ctx.provider().clone(),

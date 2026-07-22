@@ -10,6 +10,9 @@
 mod config;
 pub use config::BuilderConfig;
 
+mod build_events;
+pub use build_events::{BuildEvent, BuildEventEmitter, BuildEventSender};
+
 mod metrics;
 pub use metrics::BuilderMetrics;
 

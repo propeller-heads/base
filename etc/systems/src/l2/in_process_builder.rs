@@ -110,6 +110,7 @@ impl InProcessBuilder {
             block_time: Duration::from_millis(2000),
             flashblocks_ws_addr: SocketAddr::new(Ipv4Addr::LOCALHOST.into(), flashblocks_port),
             flashblocks_interval: Duration::from_millis(200),
+            build_event_tx: None,
             ..Default::default()
         };
 

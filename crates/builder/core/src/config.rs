@@ -76,6 +76,10 @@ pub struct BuilderConfig {
     /// Maximum number of rejected transactions accumulated per block before
     /// further rejections are dropped. Prevents unbounded `ExecutionInfo` growth.
     pub max_rejected_txs_per_block: usize,
+
+    /// Optional sink for build lifecycle events consumed by in-process services.
+    /// `None` (default) disables emission entirely.
+    pub build_event_tx: Option<crate::BuildEventSender>,
 }
 
 impl BuilderConfig {
@@ -109,6 +113,7 @@ impl core::fmt::Debug for BuilderConfig {
             .field("audit_archiver_url", &self.audit_archiver_url)
             .field("rejected_tx_channel_size", &self.rejected_tx_channel_size)
             .field("max_rejected_txs_per_block", &self.max_rejected_txs_per_block)
+            .field("build_event_tx", &self.build_event_tx.is_some())
             .finish()
     }
 }
@@ -134,6 +139,7 @@ impl Default for BuilderConfig {
             audit_archiver_url: None,
             rejected_tx_channel_size: 500,
             max_rejected_txs_per_block: 500,
+            build_event_tx: None,
         }
     }
 }

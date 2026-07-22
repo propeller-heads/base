@@ -307,6 +307,7 @@ impl Args {
             audit_archiver_url: self.audit_archiver_url,
             rejected_tx_channel_size: self.rejected_tx_channel_size,
             max_rejected_txs_per_block: self.max_rejected_txs_per_block,
+            build_event_tx: None,
         })
     }
 }

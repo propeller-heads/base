@@ -52,7 +52,8 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, metadata::Level, span, warn};
 
 use crate::{
-    BuilderConfig, BuilderMetrics, ExecutionInfo, PayloadBuilder, ResourceLimits,
+    BuildEventEmitter, BuilderConfig, BuilderMetrics, ExecutionInfo, PayloadBuilder,
+    ResourceLimits,
     flashblocks::{
         FlashblocksExtraCtx,
         best_txs::BestFlashblocksTxs,
@@ -120,12 +121,15 @@ pub(super) struct BasePayloadBuilder<Pool, Client> {
     pub config: BuilderConfig,
     /// Sender for forwarding per-block batches of rejected transactions to the audit-archiver.
     pub rejected_tx_sender: Option<mpsc::Sender<Vec<RejectedTransaction>>>,
+    /// Emitter for the optional build-event stream.
+    pub build_events: Arc<BuildEventEmitter>,
     /// Last flashblock emitted by this builder instance.
     last_emitted_flashblock_id: Arc<LastEmittedFlashblockId>,
 }
 
 impl<Pool, Client> BasePayloadBuilder<Pool, Client> {
     /// `BasePayloadBuilder` constructor.
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn new(
         evm_config: BaseEvmConfig,
         pool: Pool,
@@ -134,6 +138,7 @@ impl<Pool, Client> BasePayloadBuilder<Pool, Client> {
         payload_tx: mpsc::Sender<BaseBuiltPayload>,
         ws_pub: Arc<WebSocketPublisher>,
         rejected_tx_sender: Option<mpsc::Sender<Vec<RejectedTransaction>>>,
+        build_events: Arc<BuildEventEmitter>,
     ) -> Self {
         Self {
             evm_config,
@@ -143,6 +148,7 @@ impl<Pool, Client> BasePayloadBuilder<Pool, Client> {
             ws_pub,
             config,
             rejected_tx_sender,
+            build_events,
             last_emitted_flashblock_id: Arc::default(),
         }
     }
@@ -241,7 +247,23 @@ where
             extra,
             builder_config: self.config.clone(),
             rejected_tx_sender: self.rejected_tx_sender.clone(),
+            build_events: Arc::clone(&self.build_events),
         })
+    }
+
+    /// Delegates to [`Self::build_payload`], additionally emitting an
+    /// [`crate::BuildEvent::IterationAborted`] event if the build fails.
+    async fn build_payload_with_events(
+        &self,
+        args: BuildArguments<BasePayloadBuilderAttributes<BaseTransactionSigned>, BaseBuiltPayload>,
+        best_payload: BlockCell<BaseBuiltPayload>,
+    ) -> Result<(), PayloadBuilderError> {
+        let payload_id = args.config.attributes.payload_attributes.id;
+        let result = self.build_payload(args, best_payload).await;
+        if result.is_err() {
+            self.build_events.emit(crate::BuildEvent::IterationAborted { payload_id });
+        }
+        result
     }
 
     /// Constructs a Base payload from the transactions sent via the
@@ -287,6 +309,13 @@ where
                 },
             )
             .map_err(|e| PayloadBuilderError::Other(e.into()))?;
+
+        self.build_events.emit(crate::BuildEvent::IterationStart {
+            payload_id: ctx.payload_id(),
+            block_number,
+            timestamp,
+            base_fee: ctx.base_fee(),
+        });
 
         let state_provider = self.client.state_by_block_hash(ctx.parent().hash())?;
         let db = StateProviderDatabase::new(state_provider);
@@ -935,6 +964,8 @@ where
 
         ctx.flush_rejected_txs(info);
         self.emit_final_inclusion_events(ctx, &final_payload);
+        self.build_events
+            .emit(crate::BuildEvent::IterationComplete { payload_id: ctx.payload_id() });
 
         let elapsed = start_time.elapsed();
         info!(
@@ -1057,7 +1088,7 @@ where
         args: BuildArguments<Self::Attributes, Self::BuiltPayload>,
         best_payload: BlockCell<Self::BuiltPayload>,
     ) -> Result<(), PayloadBuilderError> {
-        self.build_payload(args, best_payload).await
+        self.build_payload_with_events(args, best_payload).await
     }
 }
 
