@@ -118,6 +118,132 @@ impl TransactionEventsArgs {
     }
 }
 
+/// CLI options for the intent-swap extension.
+#[derive(Debug, Clone, PartialEq, clap::Args)]
+pub struct IntentSwapArgs {
+    /// Enables the intent-swap extension.
+    #[arg(
+        id = "intent_swap_enabled",
+        long = "builder.intent-swap.enabled",
+        env = "INTENT_SWAP_ENABLED",
+        default_value = "false"
+    )]
+    pub enabled: bool,
+    /// Tycho WebSocket host.
+    #[arg(
+        long = "builder.intent-swap.tycho-url",
+        env = "INTENT_SWAP_TYCHO_URL",
+        default_value = "tycho-beta.propellerheads.xyz"
+    )]
+    pub tycho_url: String,
+    /// Tycho API key.
+    #[arg(
+        long = "builder.intent-swap.tycho-api-key",
+        env = "INTENT_SWAP_TYCHO_API_KEY",
+        hide_env_values = true
+    )]
+    pub tycho_api_key: Option<String>,
+    /// Chain JSON-RPC URL for on-chain order queries.
+    #[arg(long = "builder.intent-swap.rpc-url", env = "INTENT_SWAP_RPC_URL")]
+    pub rpc_url: Option<String>,
+    /// Fusion resolver contract address.
+    #[arg(long = "builder.intent-swap.resolver-address", env = "INTENT_SWAP_RESOLVER_ADDRESS")]
+    pub resolver_address: Option<String>,
+    /// EOA private key for signing settlements (env only in practice).
+    #[arg(
+        long = "builder.intent-swap.eoa-key",
+        env = "INTENT_SWAP_EOA_KEY",
+        hide_env_values = true
+    )]
+    pub eoa_key: Option<String>,
+    /// Chain slug for Tycho market data.
+    #[arg(
+        id = "intent_swap_chain",
+        long = "builder.intent-swap.chain",
+        env = "INTENT_SWAP_CHAIN",
+        default_value = "base",
+        value_name = "CHAIN"
+    )]
+    pub chain: String,
+    /// 1inch Fusion chain id.
+    #[arg(
+        long = "builder.intent-swap.chain-id",
+        env = "INTENT_SWAP_CHAIN_ID",
+        default_value = "8453"
+    )]
+    pub chain_id: u64,
+    /// Comma-separated Tycho protocol slugs.
+    #[arg(
+        long = "builder.intent-swap.protocols",
+        env = "INTENT_SWAP_PROTOCOLS",
+        default_value = "uniswap_v2,uniswap_v3,uniswap_v4",
+        value_delimiter = ','
+    )]
+    pub protocols: Vec<String>,
+    /// Minimum pool TVL filter.
+    #[arg(
+        long = "builder.intent-swap.min-tvl",
+        env = "INTENT_SWAP_MIN_TVL",
+        default_value = "10.0"
+    )]
+    pub min_tvl: f64,
+    /// Route slippage tolerance.
+    #[arg(
+        long = "builder.intent-swap.slippage",
+        env = "INTENT_SWAP_SLIPPAGE",
+        default_value = "0.005"
+    )]
+    pub slippage: f64,
+    /// Submitted-order queue capacity.
+    #[arg(
+        long = "builder.intent-swap.order-queue-capacity",
+        env = "INTENT_SWAP_ORDER_QUEUE_CAPACITY",
+        default_value = "64"
+    )]
+    pub order_queue_capacity: usize,
+    /// Build-event channel capacity.
+    #[arg(
+        long = "builder.intent-swap.event-channel-capacity",
+        env = "INTENT_SWAP_EVENT_CHANNEL_CAPACITY",
+        default_value = "4096"
+    )]
+    pub event_channel_capacity: usize,
+    /// Enables the LOP on-chain preflight that rejects unfillable or unauthentic orders
+    /// before signing and submitting a settlement.
+    #[arg(
+        id = "intent_swap_verify_onchain_taking",
+        long = "builder.intent-swap.verify-onchain-taking",
+        env = "INTENT_SWAP_VERIFY_ONCHAIN_TAKING",
+        default_value = "false"
+    )]
+    pub verify_onchain_taking: bool,
+}
+
+impl Default for IntentSwapArgs {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            tycho_url: "tycho-beta.propellerheads.xyz".to_string(),
+            tycho_api_key: None,
+            rpc_url: None,
+            resolver_address: None,
+            eoa_key: None,
+            chain: "base".to_string(),
+            chain_id: 8453,
+            protocols: vec![
+                "uniswap_v2".to_string(),
+                "uniswap_v3".to_string(),
+                "uniswap_v4".to_string(),
+            ],
+            min_tvl: 10.0,
+            slippage: 0.005,
+            order_queue_capacity: 64,
+            event_channel_capacity: 4096,
+            verify_onchain_taking: false,
+        }
+    }
+}
+
 /// Parameters for rollup configuration
 #[derive(Debug, Clone, clap::Args)]
 #[command(next_help_heading = "Rollup")]
@@ -219,6 +345,10 @@ pub struct Args {
     /// Transaction event journal configuration
     #[command(flatten)]
     pub transaction_events: TransactionEventsArgs,
+
+    /// Intent-swap extension configuration
+    #[command(flatten)]
+    pub intent_swap: IntentSwapArgs,
 }
 
 impl Args {
@@ -258,6 +388,7 @@ impl Default for Args {
             sampling_ratio: 100,
             flashblocks: FlashblocksArgs::default(),
             transaction_events: TransactionEventsArgs::default(),
+            intent_swap: IntentSwapArgs::default(),
         }
     }
 }

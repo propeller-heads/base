@@ -22,6 +22,7 @@ base-txpool-rpc.workspace = true
 base-node-runner.workspace = true
 base-builder-cli.workspace = true
 base-builder-core.workspace = true
+base-intent-swap.workspace = true
 base-builder-metering.workspace = true
 base-observability-events.workspace = true
 
@@ -32,6 +33,10 @@ base-execution-cli = { workspace = true, features = ["otlp"] }
 
 # cli
 clap.workspace = true
+
+# misc
+eyre.workspace = true
+tokio = { workspace = true, features = ["sync"] }
 
 [features]
 default = [ "jemalloc" ]

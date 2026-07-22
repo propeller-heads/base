@@ -17,3 +17,6 @@ pub use convert::{payload_uuid, raw_tx_to_signed, to_block_env, to_executed_tx};
 
 mod engine;
 pub use engine::IntentSwapEngine;
+
+mod extension;
+pub use extension::IntentSwapExtension;
