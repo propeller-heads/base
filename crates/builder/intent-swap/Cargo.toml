@@ -1,0 +1,45 @@
+[package]
+name = "base-intent-swap"
+description = "Intent-swap extension: solve signed Fusion orders against pending state and include settlements in the current block"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+# base
+backrunner.workspace = true
+builder-types.workspace = true
+base-node-runner.workspace = true
+base-builder-core.workspace = true
+base-execution-txpool.workspace = true
+base-common-consensus = { workspace = true, features = ["reth", "k256"] }
+
+# reth
+reth-provider.workspace = true
+reth-payload-builder.workspace = true
+reth-transaction-pool.workspace = true
+
+# alloy
+alloy-eips.workspace = true
+alloy-signer.workspace = true
+alloy-consensus.workspace = true
+alloy-primitives.workspace = true
+alloy-signer-local.workspace = true
+
+# misc
+eyre.workspace = true
+uuid.workspace = true
+serde.workspace = true
+tracing.workspace = true
+async-trait.workspace = true
+jsonrpsee = { workspace = true, features = ["server", "macros"] }
+tokio = { workspace = true, features = ["sync", "macros", "rt"] }
+
+[dev-dependencies]
+serde_json.workspace = true

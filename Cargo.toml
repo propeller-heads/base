@@ -175,6 +175,7 @@ base-builder-cli = { path = "crates/builder/cli" }
 base-builder-core = { path = "crates/builder/core" }
 base-builder-publish = { path = "crates/builder/publish" }
 base-builder-metering = { path = "crates/builder/metering" }
+base-intent-swap = { path = "crates/builder/intent-swap" }
 
 # Consensus
 base-consensus-cli = { path = "crates/consensus/cli" }
@@ -288,6 +289,10 @@ base-upgrade-signal = { path = "crates/utilities/upgrade-signal" }
 base-balance-monitor = { path = "crates/utilities/balance-monitor" }
 base-metrics = { path = "crates/utilities/metrics", default-features = false }
 base-runtime = { path = "crates/utilities/runtime", default-features = false }
+
+# Intent-swap engine (Propellerheads)
+backrunner = { git = "ssh://git@github.com/propeller-heads/builder-integration.git", rev = "6029f1b4739c753383c0ce5ef03a70ad1bd007e5" }
+builder-types = { git = "ssh://git@github.com/propeller-heads/builder-integration.git", rev = "6029f1b4739c753383c0ce5ef03a70ad1bd007e5" }
 
 # revm
 revm = { version = "40.0.3", default-features = false }
