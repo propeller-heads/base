@@ -16,7 +16,7 @@ use tracing::info;
 pub const INVALID_SIGNATURE_CODE: i32 = -33001;
 /// JSON-RPC error code: the order's Dutch auction window has ended.
 pub const ORDER_EXPIRED_CODE: i32 = -33002;
-/// JSON-RPC error code: structurally invalid order (zero amount, empty id).
+/// JSON-RPC error code: structurally invalid order (malformed order id, zero amount).
 pub const INVALID_ORDER_CODE: i32 = -33003;
 /// JSON-RPC error code: intake queue is full; retry later.
 pub const QUEUE_FULL_CODE: i32 = -33004;
@@ -63,12 +63,16 @@ fn validate(order: &FusionOrder) -> Result<(), ErrorObjectOwned> {
             None::<()>,
         ));
     }
-    if order.order_id.is_empty() || order.making_amount.is_zero() {
+    let id = order.order_id.strip_prefix("0x").unwrap_or("");
+    if id.len() != 64 || !id.bytes().all(|b| b.is_ascii_hexdigit()) {
         return Err(ErrorObject::owned(
             INVALID_ORDER_CODE,
-            "order_id empty or making_amount zero",
+            "order_id must be a 32-byte 0x-hex order hash",
             None::<()>,
         ));
+    }
+    if order.making_amount.is_zero() {
+        return Err(ErrorObject::owned(INVALID_ORDER_CODE, "making_amount is zero", None::<()>));
     }
     let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
     if order.auction_start_time.saturating_add(order.auction_duration_secs) < now {
@@ -108,7 +112,7 @@ mod tests {
             .expect("clock")
             .as_secs();
         serde_json::from_value(serde_json::json!({
-            "order_id": "0xabc123",
+            "order_id": format!("0x{}", "ab".repeat(32)),
             "from_token": "0x4200000000000000000000000000000000000006",
             "to_token": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
             "making_amount": "0x0de0b6b3a7640000",
@@ -143,8 +147,26 @@ mod tests {
         let api = IntentApiImpl::new(tx);
         let resp = api.submit_order(valid_order()).await.expect("accepted");
         assert_eq!(resp.status, "accepted");
-        assert_eq!(resp.order_hash, "0xabc123");
+        assert_eq!(resp.order_hash, format!("0x{}", "ab".repeat(32)));
         assert!(rx.try_recv().is_ok());
+    }
+
+    #[tokio::test]
+    async fn rejects_order_id_that_is_not_a_32_byte_hash() {
+        let (tx, _rx) = mpsc::channel(4);
+        let api = IntentApiImpl::new(tx);
+        for order_id in [
+            "",
+            "0xabc123",
+            &format!("0x{}", "ab".repeat(33)),
+            "0xdemo000000000000000000000000000000000000000000000000000000face",
+            &format!("0x{}", "ab".repeat(32))[2..],
+        ] {
+            let mut order = valid_order();
+            order.order_id = order_id.to_owned();
+            let err = api.submit_order(order).await.expect_err("must reject");
+            assert_eq!(err.code(), INVALID_ORDER_CODE, "order_id: {order_id}");
+        }
     }
 
     #[tokio::test]
